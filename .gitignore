@@ -1,0 +1,4 @@
+# Base de datos SQLite local (se genera con las migraciones de EF Core)
+database/*.db
+database/*.db-shm
+database/*.db-wal
