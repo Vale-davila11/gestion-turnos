@@ -57,5 +57,6 @@ Este documento es tan importante como el código: el objetivo es poder explicar 
 - Paso 1 completado: modelos (Operador, TipoTurno, AsignacionTurno), `ApplicationDbContext`, migración inicial y base SQLite (`database/gestionturnos.db`, generado, no versionado). Documentado en `GUIA_DE_ESTUDIO.md`.
 - Paso 2 completado: base MVC (layout, Bootstrap, HomeController) + CRUD completo de Operadores (Controller + Views), probado end-to-end. Documentado en `GUIA_DE_ESTUDIO.md`.
 - Paso 3 completado: CRUD completo de TipoTurno (Controller + Views), horario libre sin turnos predefinidos, probado end-to-end. Documentado en `GUIA_DE_ESTUDIO.md`.
-- Pendiente: login con Identity, vista de asignación semanal, README final.
+- Paso 4 completado: login con ASP.NET Core Identity. `ApplicationDbContext` ahora hereda de `IdentityDbContext<IdentityUser>`. `AccountController` (Login/Logout) escrito a mano usando `SignInManager`. Operadores y TiposTurno protegidos con `[Authorize]`. Usuario admin de prueba sembrado en `Program.cs`: `admin@gestionturnos.local` / `Admin123!` (email inventado a propósito, no usar uno real — ver GUIA_DE_ESTUDIO.md). Probado end-to-end.
+- Pendiente: vista de asignación semanal, README final.
 - Nota de entorno: en cada PC nueva hace falta instalar el SDK de .NET 10, y las herramientas globales `dotnet-ef` y (si se usa scaffolding) `dotnet-aspnet-codegenerator`, y correr `dotnet ef database update` antes de levantar la app (la base `.db` no está versionada).

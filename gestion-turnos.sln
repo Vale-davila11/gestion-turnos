@@ -1,0 +1,30 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.002.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "backend", "backend", "{B97059AA-4FFA-4BF4-800D-E563C4815583}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GestionTurnos", "backend\GestionTurnos\GestionTurnos.csproj", "{52380362-2F12-475E-B4BE-1EED5F645294}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{52380362-2F12-475E-B4BE-1EED5F645294}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{52380362-2F12-475E-B4BE-1EED5F645294}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{52380362-2F12-475E-B4BE-1EED5F645294}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{52380362-2F12-475E-B4BE-1EED5F645294}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{52380362-2F12-475E-B4BE-1EED5F645294} = {B97059AA-4FFA-4BF4-800D-E563C4815583}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {FA93E793-30DB-4890-83B2-EE8F89BAA964}
+	EndGlobalSection
+EndGlobal

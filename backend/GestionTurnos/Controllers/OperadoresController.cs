@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using GestionTurnos.Data;
@@ -5,6 +6,7 @@ using GestionTurnos.Models;
 
 namespace GestionTurnos.Controllers;
 
+[Authorize]
 public class OperadoresController : Controller
 {
     private readonly ApplicationDbContext _context;

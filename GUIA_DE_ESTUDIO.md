@@ -7,6 +7,7 @@ Este documento acompaña al código del proyecto. Está pensado para que, ademá
 1. [Paso 1 — Modelos y base de datos](#paso-1--modelos-y-base-de-datos)
 2. [Paso 2 — Base MVC y CRUD de Operadores](#paso-2--base-mvc-y-crud-de-operadores)
 3. [Paso 3 — CRUD de Tipos de Turno](#paso-3--crud-de-tipos-de-turno)
+4. [Paso 4 — Login con ASP.NET Core Identity](#paso-4--login-con-aspnet-core-identity)
 
 ---
 
@@ -135,6 +136,54 @@ El prompt pedía explícitamente un CRUD de Tipos de Turno con nombre y horario 
 ### Errores comunes / trampas en esta parte
 
 - **Comparar `HoraInicio` y `HoraFin` asumiendo que la fin siempre es mayor a la de inicio.** El turno Noche (22:00–06:00) cruza la medianoche, así que una validación tipo "HoraFin > HoraInicio" rechazaría un turno nocturno válido. Por eso no se agregó esa validación en este paso — hay que tenerlo en cuenta si más adelante se agrega alguna regla de horario.
+
+---
+
+## Paso 4 — Login con ASP.NET Core Identity
+
+### Qué se hizo
+
+- Se agregó el paquete `Microsoft.AspNetCore.Identity.EntityFrameworkCore`.
+- `ApplicationDbContext` pasó a heredar de `IdentityDbContext<IdentityUser>` en vez de `DbContext`. Esto agrega automáticamente las tablas de Identity (`AspNetUsers`, `AspNetRoles`, etc.) al modelo.
+- Se generó y aplicó una nueva migración (`AgregarIdentity`) para crear esas tablas.
+- Se configuró Identity en `Program.cs`: `AddIdentity<IdentityUser, IdentityRole>()`, autenticación por cookies, y un `SeedAdminAsync` que crea un usuario admin de prueba al iniciar la aplicación si todavía no existe (`admin@gestionturnos.local`).
+- Se escribió a mano un `AccountController` con dos acciones: `Login` (GET muestra el formulario, POST valida credenciales con `SignInManager`) y `Logout`. No se generaron las páginas por defecto de Identity (Registro, Recuperar contraseña, Confirmación de email, etc.) porque el alcance del proyecto solo pide un admin de prueba, sin gestión de cuentas.
+- Se agregó `[Authorize]` a `OperadoresController` y `TiposTurnoController`, así que ahora hace falta estar logueado para gestionarlos.
+- Se probó el flujo completo: acceso bloqueado sin sesión, redirección a Login con `ReturnUrl`, login con credenciales correctas y también incorrectas, acceso permitido ya logueado, y logout.
+
+### Para qué sirve dentro del sistema completo
+
+Protege los CRUD de Operadores y Tipos de Turno (y en el futuro, la vista de asignación) para que no cualquiera pueda modificar los datos del sistema sin loguearse.
+
+### Por qué se tomaron estas decisiones técnicas
+
+**¿Por qué ASP.NET Core Identity y no un login hecho a mano (verificar usuario/contraseña contra una tabla propia)?**
+Identity ya resuelve, de forma probada y segura, cosas que son fáciles de hacer mal si se escriben a mano: el hasheo de contraseñas (nunca se guardan en texto plano), la protección contra fuerza bruta, la generación y validación de la cookie de sesión, y la integración con `[Authorize]`. Reinventar esto no aporta nada al proyecto y sí agrega riesgo de un login inseguro.
+
+*Cuándo se justificaría un login manual:* prácticamente nunca para un proyecto nuevo — Identity es el estándar de la plataforma. Se ve código de login manual sobre todo en proyectos legacy que no lo tenían disponible.
+
+**¿Por qué escribir el `AccountController` a mano en vez de usar el scaffolding completo de Identity (`dotnet new mvc -au Individual`)?**
+El scaffolding completo trae Registro, Recuperación de contraseña, Confirmación de email por correo, autenticación en dos pasos, login con proveedores externos (Google, Microsoft), y páginas de administración de la propia cuenta. El prompt original pide explícitamente "un admin de prueba es suficiente, no hace falta manejo de roles complejo" — agregar todo eso sería sobre-ingeniería para este MVP. Lo que sí se usó del scaffolding es la parte que importa: las clases `UserManager`/`SignInManager` de Identity, que son las mismas que usan las páginas generadas automáticamente.
+
+**¿Por qué el usuario admin se crea con código (`SeedAdminAsync`) en vez de insertarlo a mano en la base?**
+Así cualquiera que clone el repo y corra `dotnet ef database update` seguido de `dotnet run` tiene el usuario de prueba disponible sin pasos manuales extra, incluso en una base nueva y vacía. Es la misma lógica de las migraciones: reproducible en cualquier máquina.
+
+**¿Por qué el admin de prueba usa un email inventado (`admin@gestionturnos.local`) y no un email real?**
+El código que crea este usuario queda en el repositorio, que es público. Poner un email real y una contraseña débil ahí los expone permanentemente en el historial de git. `admin@gestionturnos.local` es un dominio reservado para pruebas/documentación (no resuelve a nada real).
+
+### Conceptos nuevos
+
+- **IdentityDbContext**: una versión de `DbContext` que ya trae predefinidas las tablas necesarias para usuarios, roles, y sus relaciones. Al heredar de él (en vez de `DbContext` a secas), el propio `ApplicationDbContext` termina teniendo tanto las tablas del dominio (Operadores, TiposTurno) como las de autenticación, todo en la misma base SQLite.
+- **UserManager / SignInManager**: dos clases de Identity con responsabilidades distintas. `UserManager<TUser>` maneja el CRUD de usuarios (crearlos, buscarlos, cambiar contraseñas). `SignInManager<TUser>` maneja el proceso de login/logout en sí (validar credenciales, escribir la cookie de sesión).
+- **`[Authorize]`**: atributo que se pone sobre un Controller o una Action para exigir que el usuario esté autenticado antes de poder ejecutarla. Si no lo está, ASP.NET Core lo redirige automáticamente a la ruta configurada en `LoginPath` (en este proyecto, `/Account/Login`), agregando un `ReturnUrl` para volver a la página que quería ver después de loguearse.
+- **Cookie de autenticación**: después de un login exitoso, el servidor manda al navegador una cookie firmada que identifica la sesión. En cada pedido siguiente, el navegador la reenvía automáticamente y el middleware de autenticación (`app.UseAuthentication()`) la valida antes de que la request llegue al Controller.
+
+### Errores comunes / trampas en esta parte
+
+- **Olvidar `base.OnModelCreating(modelBuilder)` al sobreescribir `OnModelCreating` en un `IdentityDbContext`.** Si no se llama al método de la clase base, EF Core no configura las tablas de Identity correctamente.
+- **Poner `app.UseAuthorization()` antes de `app.UseAuthentication()`.** El orden importa: primero hay que identificar quién es el usuario (Authentication), y después decidir si tiene permiso (Authorization). Al revés, `[Authorize]` no tiene la información del usuario todavía.
+- **Commitear credenciales reales de prueba.** Por eso se usó un email inventado — ver la sección de decisiones técnicas arriba.
+- **Cambiar la contraseña del admin de prueba en un solo lugar y no en el otro.** La contraseña vive únicamente en `SeedAdminAsync` (`Program.cs`); si se cambia ahí después de que el usuario ya existe en la base, no tiene efecto porque `SeedAdminAsync` solo crea el usuario si todavía no existe — hay que borrarlo de la tabla `AspNetUsers` (o borrar el archivo `.db` y volver a migrar) para que tome la contraseña nueva.
 
 ---
 
