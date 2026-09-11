@@ -1,0 +1,80 @@
+@model AsignacionSemanalViewModel
+@{
+    ViewData["Title"] = "Asignación Semanal";
+    string[] nombresDias = { "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo" };
+}
+
+<h1>Asignación Semanal</h1>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <a class="btn btn-outline-secondary" asp-action="Index" asp-route-semana="@Model.InicioSemana.AddDays(-7).ToString("yyyy-MM-dd")">&laquo; Semana anterior</a>
+    <h4 class="mb-0">Semana del @Model.InicioSemana.ToString("dd/MM/yyyy") al @Model.Dias[^1].ToString("dd/MM/yyyy")</h4>
+    <a class="btn btn-outline-secondary" asp-action="Index" asp-route-semana="@Model.Dias[^1].AddDays(1).ToString("yyyy-MM-dd")">Semana siguiente &raquo;</a>
+</div>
+
+@if (!Model.TiposTurno.Any())
+{
+    <p>No hay Tipos de Turno creados todavía. <a asp-controller="TiposTurno" asp-action="Create">Crear uno</a>.</p>
+}
+else if (!Model.Operadores.Any())
+{
+    <p>No hay Operadores creados todavía. <a asp-controller="Operadores" asp-action="Create">Crear uno</a>.</p>
+}
+else
+{
+    <form asp-action="Guardar">
+        <input type="hidden" name="semana" value="@Model.InicioSemana.ToString("yyyy-MM-dd")" />
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+                <thead>
+                    <tr>
+                        <th>Tipo de Turno</th>
+                        @for (int d = 0; d < Model.Dias.Count; d++)
+                        {
+                            <th>
+                                @nombresDias[d]<br />
+                                <small class="text-muted">@Model.Dias[d].ToString("dd/MM")</small>
+                            </th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+@{ int indice = 0; }
+@foreach (var tipoTurno in Model.TiposTurno)
+{
+                    <tr>
+                        <td>
+                            <strong>@tipoTurno.Nombre</strong><br />
+                            <small class="text-muted">@tipoTurno.HoraInicio - @tipoTurno.HoraFin</small>
+                        </td>
+                        @for (int d = 0; d < Model.Dias.Count; d++)
+                        {
+                            var celda = Model.Celdas[indice];
+                            <td>
+                                <input type="hidden" name="celdas[@indice].TipoTurnoId" value="@celda.TipoTurnoId" />
+                                <input type="hidden" name="celdas[@indice].Fecha" value="@celda.Fecha.ToString("yyyy-MM-dd")" />
+                                <select name="celdas[@indice].OperadorId" class="form-select form-select-sm">
+                                    <option value="">-- Sin asignar --</option>
+                                    @foreach (var operador in Model.Operadores)
+                                    {
+                                        if (celda.OperadorId == operador.Id)
+                                        {
+                                            <option value="@operador.Id" selected>@operador.Nombre</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="@operador.Id">@operador.Nombre</option>
+                                        }
+                                    }
+                                </select>
+                            </td>
+                            indice++;
+                        }
+                    </tr>
+}
+                </tbody>
+            </table>
+        </div>
+        <button type="submit" class="btn btn-primary">Guardar asignaciones</button>
+    </form>
+}

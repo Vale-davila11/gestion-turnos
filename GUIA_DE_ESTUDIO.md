@@ -8,6 +8,7 @@ Este documento acompaña al código del proyecto. Está pensado para que, ademá
 2. [Paso 2 — Base MVC y CRUD de Operadores](#paso-2--base-mvc-y-crud-de-operadores)
 3. [Paso 3 — CRUD de Tipos de Turno](#paso-3--crud-de-tipos-de-turno)
 4. [Paso 4 — Login con ASP.NET Core Identity](#paso-4--login-con-aspnet-core-identity)
+5. [Paso 5 — Vista de Asignación Semanal](#paso-5--vista-de-asignación-semanal)
 
 ---
 
@@ -184,6 +185,48 @@ El código que crea este usuario queda en el repositorio, que es público. Poner
 - **Poner `app.UseAuthorization()` antes de `app.UseAuthentication()`.** El orden importa: primero hay que identificar quién es el usuario (Authentication), y después decidir si tiene permiso (Authorization). Al revés, `[Authorize]` no tiene la información del usuario todavía.
 - **Commitear credenciales reales de prueba.** Por eso se usó un email inventado — ver la sección de decisiones técnicas arriba.
 - **Cambiar la contraseña del admin de prueba en un solo lugar y no en el otro.** La contraseña vive únicamente en `SeedAdminAsync` (`Program.cs`); si se cambia ahí después de que el usuario ya existe en la base, no tiene efecto porque `SeedAdminAsync` solo crea el usuario si todavía no existe — hay que borrarlo de la tabla `AspNetUsers` (o borrar el archivo `.db` y volver a migrar) para que tome la contraseña nueva.
+
+---
+
+## Paso 5 — Vista de Asignación Semanal
+
+### Qué se hizo
+
+- Se agregó `AsignacionesController` (protegido con `[Authorize]`, igual que los otros dos) con dos acciones: `Index` (muestra la grilla de una semana) y `Guardar` (procesa el formulario completo de la grilla).
+- Se creó `AsignacionSemanalViewModel`, que junta todo lo que necesita la vista: el lunes de la semana mostrada, la lista de los 7 días, los Tipos de Turno existentes, los Operadores existentes, y una lista plana de "celdas" (una por cada combinación Tipo de Turno × Día).
+- La vista `Views/Asignaciones/Index.cshtml` dibuja una tabla: filas = Tipos de Turno, columnas = los 7 días de la semana, y cada celda es un `<select>` con los Operadores (más la opción "Sin asignar"). Arriba tiene links para ir a la semana anterior/siguiente.
+- Al tocar "Guardar asignaciones", se manda todo el formulario de una sola vez. El servidor compara, para cada celda, contra lo que ya había en la base esa semana: si se seleccionó un operador y no había nada, crea el registro; si había un operador distinto, lo actualiza; si se dejó "Sin asignar" y antes había algo, lo borra.
+- Se decidió (charlado antes de programar) que un mismo operador pueda quedar asignado a más de un Tipo de Turno el mismo día — no hay ninguna restricción que lo bloquee.
+- Se probaron los tres caminos (crear, actualizar, y vaciar una celda) haciendo pedidos HTTP reales contra el servidor corriendo, además de la navegación entre semanas.
+
+### Para qué sirve dentro del sistema completo
+
+Es la pantalla principal del sistema — la razón por la que existe todo lo demás. Los Operadores y Tipos de Turno de los pasos anteriores son los "ingredientes"; esta vista es donde se combinan semana a semana.
+
+### Por qué se tomaron estas decisiones técnicas
+
+**¿Por qué un único botón "Guardar" para toda la grilla, en vez de que cada celda se guarde sola (por ejemplo, con JavaScript al cambiar el `<select>`)?**
+Guardar todo junto es mucho más simple de implementar y de entender — un solo POST, un solo método en el Controller, sin necesitar JavaScript ni llamadas AJAX. La desventaja es que si alguien cambia 10 celdas y se corta la conexión antes de guardar, se pierden los 10 cambios (con guardado celda por celda, se habrían guardado los que ya se alcanzaron a mandar). Para el tamaño de este MVP (una grilla de una semana, algunos Tipos de Turno) esa desventaja no pesa tanto como la simplicidad ganada.
+
+*Cuándo convendría guardar celda por celda:* en una grilla mucho más grande (por ejemplo, un mes completo con muchos operadores), donde perder todos los cambios de una sesión larga de edición sería más costoso.
+
+**¿Por qué comparar contra la base y decidir crear/actualizar/borrar, en vez de borrar todas las asignaciones de la semana y volver a crearlas de cero?**
+Borrar y recrear todo es más simple de programar, pero tiene una desventaja real: cada fila borrada y recreada obtiene un `Id` nuevo. Si en el futuro otra parte del sistema necesitara referenciar una asignación puntual por su Id (por ejemplo, un historial de cambios), borrar y recrear rompería esas referencias sin necesidad. Comparar y actualizar solo lo que cambió mantiene los `Id` estables para las celdas que no se tocaron.
+
+**¿Por qué la lista `Celdas` es "plana" (una lista de objetos con TipoTurnoId + Fecha + OperadorId) en vez de una matriz de dos dimensiones?**
+El *model binding* de ASP.NET Core (el mecanismo que convierte los campos de un formulario HTML en objetos C#) entiende de forma nativa listas indexadas como `celdas[0].TipoTurnoId`, `celdas[1].TipoTurnoId`, etc. Una matriz de dos dimensiones no tiene esa misma convención estándar, así que hubiera requerido código manual para reconstruirla — la lista plana es lo que el framework ya sabe hacer solo.
+
+### Conceptos nuevos
+
+- **ViewModel para una pantalla compleja**: a diferencia de los CRUD anteriores (donde la vista podía trabajar directo sobre `Operador` o `TipoTurno`), esta pantalla no representa una sola entidad sino una combinación de varias cosas a la vez. Por eso se armó una clase (`AsignacionSemanalViewModel`) pensada específicamente para lo que la vista necesita mostrar, sin relación directa con ninguna tabla de la base.
+- **Model binding de listas indexadas**: cuando un formulario tiene campos con nombres como `celdas[0].Fecha`, `celdas[1].Fecha`, ASP.NET Core los junta automáticamente en una `List<T>` en el parámetro del método del Controller, siempre que los índices sean consecutivos empezando en 0.
+- **DateOnly y el cálculo del lunes de una semana**: para pasar de "una fecha cualquiera" a "el lunes de esa semana", se usa la diferencia entre el `DayOfWeek` de la fecha y `DayOfWeek.Monday`, con un ajuste (`% 7`) para que funcione también cuando la fecha cae en domingo (que en .NET es el día 0, antes del lunes).
+
+### Errores comunes / trampas en esta parte
+
+- **Poner código C# suelto dentro de los atributos de una etiqueta HTML dentro de un `<select>`/`<option>` en Razor.** Da el error `RZ1031`. La solución fue usar un `if`/`else` completo para decidir si el `<option>` lleva o no el atributo `selected`, en vez de intentar meter una expresión condicional directamente en el atributo.
+- **Usar el formato de fecha por defecto (`DateOnly.ToString()`) al armar una URL de redirección.** El formato por defecto depende de la configuración regional del servidor (podía salir `09/07/2026` en vez de `2026-09-07`), lo que es ambiguo entre día y mes según el idioma configurado. Hay que formatear siempre explícitamente con `.ToString("yyyy-MM-dd")` para que sea el mismo formato sin importar dónde corra la aplicación.
+- **Al probar formularios con `curl` en una página que ya tiene otro formulario (como el de "Cerrar sesión" en el layout), extraer el token antiforgery equivocado.** Cada `<form>` de la página tiene su propio token oculto; si hay más de un formulario, hay que asegurarse de tomar el que corresponde al formulario que se está enviando.
 
 ---
 
