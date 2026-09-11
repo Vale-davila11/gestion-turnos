@@ -1,0 +1,25 @@
+@model TipoTurno
+
+@{
+    ViewData["Title"] = "Detalles del Tipo de Turno";
+}
+
+<h1>Detalles del Tipo de Turno</h1>
+
+<div>
+    <dl class="row">
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.Nombre)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.Nombre)</dd>
+
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.HoraInicio)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.HoraInicio)</dd>
+
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.HoraFin)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.HoraFin)</dd>
+    </dl>
+</div>
+
+<div>
+    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Editar</a>
+    <a asp-action="Index" class="btn btn-secondary">Volver al listado</a>
+</div>

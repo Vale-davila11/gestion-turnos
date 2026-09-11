@@ -6,6 +6,7 @@ Este documento acompaña al código del proyecto. Está pensado para que, ademá
 
 1. [Paso 1 — Modelos y base de datos](#paso-1--modelos-y-base-de-datos)
 2. [Paso 2 — Base MVC y CRUD de Operadores](#paso-2--base-mvc-y-crud-de-operadores)
+3. [Paso 3 — CRUD de Tipos de Turno](#paso-3--crud-de-tipos-de-turno)
 
 ---
 
@@ -102,6 +103,38 @@ El prompt original pedía específicamente "el Bootstrap que viene con las plant
 - **Olvidarse `[ValidateAntiForgeryToken]` en un POST.** Compila y funciona igual en desarrollo, pero deja el endpoint vulnerable a CSRF.
 - **No revisar `ModelState.IsValid` antes de guardar.** Si se guarda directo sin chequearlo, se pueden persistir datos que no cumplen las validaciones del modelo.
 - **Correr la app sin haber aplicado la migración (`dotnet ef database update`) en una PC nueva.** El archivo `.db` no se versiona (está en `.gitignore`), así que cada máquina nueva necesita este paso — si no, las páginas que consultan la base tiran "no such table".
+
+---
+
+## Paso 3 — CRUD de Tipos de Turno
+
+### Qué se hizo
+
+- Se escribió `TiposTurnoController.cs`, siguiendo exactamente la misma estructura que `OperadoresController` del Paso 2 (Index, Details, Create, Edit, Delete).
+- Se crearon las vistas Razor en `Views/TiposTurno/`.
+- Se agregó el link "Tipos de Turno" al menú del layout.
+- Se decidió que la carga de horario fuera un CRUD simple y libre: dos campos de hora (`HoraInicio`, `HoraFin`) donde se puede tipear cualquier horario, sin turnos predefinidos ni botones de acceso rápido. Los ejemplos del prompt original (Mañana 06-14, Tarde 14-22, Noche 22-06) son solo eso — ejemplos de qué datos se pueden cargar, no valores fijos del sistema.
+- Se probó el flujo completo (crear, editar, eliminar) antes de dar el paso por terminado.
+
+### Para qué sirve dentro del sistema completo
+
+Junto con Operadores, esto completa los dos catálogos base que necesita el sistema. La vista de asignación semanal (Paso 5) va a combinar ambos: qué Operador cubre qué TipoTurno, en qué día.
+
+### Por qué se tomaron estas decisiones técnicas
+
+**¿Por qué `TimeOnly` en el modelo (`HoraInicio`, `HoraFin`) y no `DateTime` o `string`?**
+`TimeOnly` es un tipo de .NET pensado específicamente para representar una hora del día sin fecha (a diferencia de `DateTime`, que siempre incluye fecha, u obligaría a inventar una fecha "dummy" sin sentido). El Tag Helper `asp-for` de ASP.NET Core lo reconoce automáticamente y genera un `<input type="time">`, que en el navegador ya trae un selector de hora nativo.
+
+**¿Por qué no restringir a turnos predefinidos (Mañana/Tarde/Noche fijos)?**
+El prompt pedía explícitamente un CRUD de Tipos de Turno con nombre y horario editable — si estuvieran fijos no habría nada que crear, editar o eliminar. Los tres ejemplos sirven para probar el sistema, pero cualquier centro de monitoreo real podría necesitar un cuarto turno, o cambiar los horarios de los existentes, y el CRUD ya permite eso sin tocar código.
+
+### Conceptos nuevos
+
+- **TimeOnly**: tipo de .NET (desde .NET 6) para representar solamente una hora del día (ej: `14:30`), sin componente de fecha. Complementa a `DateOnly`, que es solo fecha sin hora.
+
+### Errores comunes / trampas en esta parte
+
+- **Comparar `HoraInicio` y `HoraFin` asumiendo que la fin siempre es mayor a la de inicio.** El turno Noche (22:00–06:00) cruza la medianoche, así que una validación tipo "HoraFin > HoraInicio" rechazaría un turno nocturno válido. Por eso no se agregó esa validación en este paso — hay que tenerlo en cuenta si más adelante se agrega alguna regla de horario.
 
 ---
 
