@@ -70,9 +70,9 @@ Es un usuario ficticio pensado solo para probar el sistema — cambiá la contra
 
 ## Demo online
 
-_(Completar con la URL una vez deployado en Render)_
+> https://gestion-turnos-drju.onrender.com
 
-> https://TU-APP.onrender.com
+Nota: al estar en el plan gratuito de Render, el servicio se "duerme" tras un rato de inactividad — la primera carga después de eso puede tardar unos segundos mientras arranca de nuevo.
 
 ## Deploy en Render
 
