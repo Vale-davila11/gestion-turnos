@@ -76,13 +76,12 @@ _(Completar con la URL una vez deployado en Render)_
 
 ## Deploy en Render
 
-El proyecto está preparado para deployar en [Render](https://render.com) como Web Service nativo de .NET (sin necesidad de Dockerfile):
+Render no tiene un runtime nativo para .NET (sí para Node, Python, Ruby, Go, Rust o Elixir), así que el proyecto se deploya con **Docker**: el repo incluye un `Dockerfile` en `backend/GestionTurnos` y Render lo detecta y lo usa automáticamente.
 
 1. Creá una cuenta en Render y conectá tu repositorio de GitHub.
 2. Creá un **Web Service** nuevo apuntando a este repo.
    - **Root Directory:** `backend/GestionTurnos`
-   - **Build Command:** `dotnet publish -c Release -o out`
-   - **Start Command:** `dotnet out/GestionTurnos.dll`
+   - **Runtime:** Docker (Render lo detecta solo al encontrar el `Dockerfile` en esa carpeta; no hace falta Build/Start Command manuales).
 3. Agregá estas variables de entorno en la configuración del servicio:
    - `AdminSeed__Email` — email del admin de prueba para ese entorno (no reutilices el de desarrollo local).
    - `AdminSeed__Password` — contraseña del admin de prueba para ese entorno.
