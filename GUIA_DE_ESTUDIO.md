@@ -232,4 +232,14 @@ El *model binding* de ASP.NET Core (el mecanismo que convierte los campos de un 
 
 ## Próximos pasos si quisiera ampliar este proyecto
 
-*(se completa al final del proyecto)*
+Estas son ideas de funcionalidades que quedaron **fuera del alcance a propósito** del MVP, para no sobre-construir algo que el prompt original no pedía. Quedan anotadas como posibles próximos pasos:
+
+- **Roles y permisos diferenciados.** Hoy hay un solo tipo de usuario (admin). Se podría agregar un rol de "supervisor" que solo pueda ver la vista semanal sin editarla, o un rol por Operador para que cada uno vea únicamente sus propios turnos.
+- **Registro de usuarios y recuperación de contraseña.** Identity ya lo soporta (páginas de Registro, "Olvidé mi contraseña", confirmación de email); no se implementó porque el prompt pedía solo un admin de prueba.
+- **Notificaciones.** Avisar a un Operador (por email o alguna otra vía) cuando se le asigna o cambia un turno.
+- **Historial de cambios en las asignaciones.** Guardar quién cambió qué asignación y cuándo, útil para auditar cambios de último momento.
+- **Restricciones de negocio sobre las asignaciones.** Por ejemplo, impedir que un Operador quede asignado a dos turnos que se superponen en horario el mismo día (se decidió explícitamente no agregar esto en el Paso 5, para mantener la carga flexible).
+- **Vista mensual o rango de fechas configurable.** Hoy la grilla es semana por semana; se podría extender a mostrar un mes completo o un rango arbitrario.
+- **Exportar la asignación semanal a PDF o Excel**, para imprimir o compartir fuera del sistema.
+- **Reemplazar SQLite por PostgreSQL o SQL Server** si el proyecto pasara a un entorno con múltiples usuarios escribiendo al mismo tiempo (ver la comparación en el Paso 1).
+- **Actualizar las dependencias con vulnerabilidades conocidas** (`Microsoft.OpenApi`, `SQLitePCLRaw.lib.e_sqlite3`, señaladas por NuGet durante el desarrollo) a versiones más nuevas cuando estén disponibles.
