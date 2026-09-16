@@ -9,6 +9,7 @@ Este documento acompaña al código del proyecto. Está pensado para que, ademá
 3. [Paso 3 — CRUD de Tipos de Turno](#paso-3--crud-de-tipos-de-turno)
 4. [Paso 4 — Login con ASP.NET Core Identity](#paso-4--login-con-aspnet-core-identity)
 5. [Paso 5 — Vista de Asignación Semanal](#paso-5--vista-de-asignación-semanal)
+6. [Paso 6 — Preparación para deploy](#paso-6--preparación-para-deploy)
 
 ---
 
@@ -227,6 +228,46 @@ El *model binding* de ASP.NET Core (el mecanismo que convierte los campos de un 
 - **Poner código C# suelto dentro de los atributos de una etiqueta HTML dentro de un `<select>`/`<option>` en Razor.** Da el error `RZ1031`. La solución fue usar un `if`/`else` completo para decidir si el `<option>` lleva o no el atributo `selected`, en vez de intentar meter una expresión condicional directamente en el atributo.
 - **Usar el formato de fecha por defecto (`DateOnly.ToString()`) al armar una URL de redirección.** El formato por defecto depende de la configuración regional del servidor (podía salir `09/07/2026` en vez de `2026-09-07`), lo que es ambiguo entre día y mes según el idioma configurado. Hay que formatear siempre explícitamente con `.ToString("yyyy-MM-dd")` para que sea el mismo formato sin importar dónde corra la aplicación.
 - **Al probar formularios con `curl` en una página que ya tiene otro formulario (como el de "Cerrar sesión" en el layout), extraer el token antiforgery equivocado.** Cada `<form>` de la página tiene su propio token oculto; si hay más de un formulario, hay que asegurarse de tomar el que corresponde al formulario que se está enviando.
+
+---
+
+## Paso 6 — Preparación para deploy
+
+### Qué se hizo
+
+- El email y la contraseña del usuario admin de prueba dejaron de estar fijos en el código (`Program.cs`). Ahora se leen de configuración (`AdminSeed:Email`, `AdminSeed:Password`), con los mismos valores de siempre como default si no se configura nada — así el desarrollo local no cambió en nada.
+- Se agregó lectura de la variable de entorno `PORT`: si existe (la ponen los servicios de hosting tipo Render), Kestrel escucha ahí; si no existe (desarrollo local), sigue funcionando como antes.
+- Se agregó `context.Database.MigrateAsync()` al arrancar la aplicación, para que las tablas se creen solas en un entorno nuevo sin tener que entrar por SSH a correr `dotnet ef database update` a mano.
+- Se desactivó `UseHttpsRedirection()` específicamente cuando la app corre detrás de un servicio como Render (mismo indicador que el puerto), para evitar un loop de redirección — ver la explicación abajo.
+
+### Para qué sirve dentro del sistema completo
+
+Ninguno de los pasos anteriores cambia de comportamiento — esto es exclusivamente para poder mostrar el sistema funcionando online, sin depender de que alguien lo corra en su propia máquina para verlo.
+
+### Por qué se tomaron estas decisiones técnicas
+
+**¿Por qué leer el admin de prueba de configuración en vez de dejarlo fijo como estaba?**
+Mientras el proyecto corría solo en máquinas locales, tener el email/contraseña fijos en el código no expone nada nuevo (ya se explicó en el Paso 4 por qué se usó un email inventado). Pero al deployar la app queda accesible públicamente con esas credenciales — conviene poder cambiarlas por entorno sin tocar el código ni hacer un commit nuevo cada vez.
+
+**¿Por qué las migraciones se aplican solas al arrancar, en vez de requerir un comando manual como en desarrollo local?**
+En la propia máquina, correr `dotnet ef database update` a mano es simple y da control total sobre cuándo se aplica cada cambio. En un servicio de hosting gratuito, generalmente no hay una terminal fácil de usar para eso en cada deploy — automatizarlo evita que la app se rompa por una tabla faltante la primera vez que arranca en un entorno nuevo.
+
+*Cuándo NO convendría esto:* en un sistema en producción con datos reales y varias instancias corriendo al mismo tiempo, aplicar migraciones automáticamente al arrancar es riesgoso (dos instancias podrían intentar migrar a la vez, o una migración con cambios grandes podría tardar y bloquear el arranque). Ahí se prefiere un paso de deploy separado y controlado. Para esta demo, con una sola instancia, no es un problema.
+
+**¿Por qué desactivar `UseHttpsRedirection()` al correr en un servicio como Render?**
+Render (y la mayoría de los PaaS) reciben el tráfico HTTPS en su propio proxy, y se lo reenvían a la aplicación por HTTP simple internamente — el usuario final sigue viendo HTTPS en el navegador en todo momento. Si la aplicación, al recibir ese pedido interno por HTTP, intentara redirigir "a HTTPS" de nuevo, el proxy volvería a mandarle HTTP, y así indefinidamente (un loop de redirección que termina en un error en el navegador). Como el proxy ya se encarga de la parte HTTPS de cara al usuario, la aplicación no necesita (ni debe) hacerlo de nuevo por su cuenta en ese escenario.
+
+### Conceptos nuevos
+
+- **PaaS (Platform as a Service)**: un servicio de hosting donde se sube el código y la plataforma se encarga de correrlo (asignar un servidor, un puerto, reiniciarlo si se cae), a diferencia de alquilar un servidor propio y configurar todo a mano. Render, Azure App Service y Fly.io son ejemplos.
+- **Terminación de TLS en el proxy / "TLS termination"**: cuando el certificado HTTPS lo maneja el proxy de entrada del proveedor de hosting (no la propia aplicación), y el tráfico entre el proxy y la aplicación viaja sin cifrar dentro de la red interna del proveedor (que se considera segura). Es el motivo por el que la app "ve" HTTP aunque el usuario esté usando HTTPS.
+- **Variables de entorno como configuración por entorno**: en ASP.NET Core, las variables de entorno pisan automáticamente lo que dice `appsettings.json` (sin tener que escribir código para eso), usando `__` (doble guion bajo) para representar la anidación de secciones — por ejemplo, la variable de entorno `AdminSeed__Password` reemplaza a `AdminSeed:Password`.
+
+### Errores comunes / trampas en esta parte
+
+- **Dejar `UseHttpsRedirection()` activo sin condición al deployar detrás de un proxy que ya termina HTTPS.** Produce el loop de redirección explicado arriba; el síntoma típico es que el sitio nunca carga y el navegador marca "demasiadas redirecciones".
+- **Olvidarse de aplicar migraciones en el entorno nuevo.** Si no se automatiza (como se hizo acá) y tampoco se corre a mano, la app arranca pero cualquier pantalla que consulte la base tira el mismo error de "no such table" que ya apareció al configurar la primera PC nueva (Paso 2).
+- **Usar rutas relativas para la base SQLite asumiendo la misma estructura de carpetas que en desarrollo local.** La ruta `../../database/gestionturnos.db` de `appsettings.json` da por sentado desde dónde se ejecuta la app en la máquina local; en un servicio de hosting esa estructura de carpetas puede no existir. Por eso la cadena de conexión también se puede pisar por variable de entorno (`ConnectionStrings__DefaultConnection`) sin tocar código.
 
 ---
 
